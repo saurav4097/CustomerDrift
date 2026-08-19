@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: Request) {
   const cookieStore = await cookies();
-
   const token = cookieStore.get("token")?.value;
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/login", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
+      new URL("/login", request.url)
     );
   }
 
@@ -17,7 +16,7 @@ export async function GET() {
 
   if (!payload) {
     return NextResponse.redirect(
-      new URL("/login", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
+      new URL("/login", request.url)
     );
   }
 
@@ -26,9 +25,7 @@ export async function GET() {
 
   if (!appId || !redirectUri) {
     return NextResponse.json(
-      {
-        error: "Instagram environment variables are missing",
-      },
+      { error: "Instagram environment variables are missing" },
       { status: 500 }
     );
   }
@@ -36,12 +33,14 @@ export async function GET() {
   const scope =
     "instagram_business_basic,instagram_business_manage_comments";
 
-  const instagramAuthUrl =
-    `https://www.instagram.com/oauth/authorize` +
-    `?client_id=${encodeURIComponent(appId)}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&response_type=code` +
-    `&scope=${encodeURIComponent(scope)}`;
+  const params = new URLSearchParams({
+    client_id: appId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope,
+  });
 
-  return NextResponse.redirect(instagramAuthUrl);
+  return NextResponse.redirect(
+    `https://www.instagram.com/oauth/authorize?${params.toString()}`
+  );
 }

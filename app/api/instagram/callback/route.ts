@@ -60,14 +60,16 @@ export async function GET(request: NextRequest) {
     }
 
     /*
-     * Exchange authorization code for short-lived access token
+     * Exchange authorization code
      */
+
     const tokenResponse = await fetch(
       "https://api.instagram.com/oauth/access_token",
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type":
+            "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
           client_id: appId,
@@ -81,63 +83,54 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json();
 
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error("Instagram token error:", tokenData);
+    if (
+      !tokenResponse.ok ||
+      !tokenData.access_token
+    ) {
+      console.error(
+        "Instagram token error:",
+        tokenData
+      );
 
       return NextResponse.json(
         {
-          error: "Could not exchange Instagram authorization code",
+          error:
+            "Could not exchange Instagram authorization code",
           details: tokenData,
         },
         { status: 400 }
       );
     }
 
-    const shortLivedToken = tokenData.access_token;
-    const instagramUserId = String(tokenData.user_id);
+    const accessToken = tokenData.access_token;
 
     /*
-     * Get long-lived token
+     * Business Login gives us the Instagram user ID.
      */
-    const longTokenUrl =
-      `https://graph.instagram.com/access_token` +
-      `?grant_type=ig_exchange_token` +
-      `&client_secret=${encodeURIComponent(appSecret)}` +
-      `&access_token=${encodeURIComponent(shortLivedToken)}`;
 
-    const longTokenResponse = await fetch(longTokenUrl);
-
-    const longTokenData = await longTokenResponse.json();
-
-    if (!longTokenResponse.ok || !longTokenData.access_token) {
-      console.error(
-        "Instagram long-lived token error:",
-        longTokenData
-      );
-
-      return NextResponse.json(
-        {
-          error: "Could not get long-lived Instagram token",
-          details: longTokenData,
-        },
-        { status: 400 }
-      );
-    }
-
-    const accessToken = longTokenData.access_token;
-
-    /*
-     * Get Instagram username
-     */
-    const profileResponse = await fetch(
-      `https://graph.instagram.com/${instagramUserId}` +
-        `?fields=id,username` +
-        `&access_token=${encodeURIComponent(accessToken)}`
+    const instagramUserId = String(
+      tokenData.user_id
     );
 
-    const profileData = await profileResponse.json();
+    /*
+     * Get Instagram profile
+     */
 
-    if (!profileResponse.ok || !profileData.username) {
+    const profileResponse = await fetch(
+      `https://graph.instagram.com/v23.0/${instagramUserId}` +
+        `?fields=id,username` +
+        `&access_token=${encodeURIComponent(
+          accessToken
+        )}`
+    );
+
+    const profileData =
+      await profileResponse.json();
+
+    if (
+      !profileResponse.ok ||
+      !profileData.username
+    ) {
       console.error(
         "Instagram profile error:",
         profileData
@@ -152,11 +145,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    /*
+     * Save connection
+     */
+
     await connectDB();
 
-    /*
-     * Save/update Instagram setup
-     */
     await InstagramSetup.findOneAndUpdate(
       {
         userId: payload.username,
@@ -164,7 +158,8 @@ export async function GET(request: NextRequest) {
       {
         userId: payload.username,
         instagramUserId,
-        instagramUsername: profileData.username,
+        instagramUsername:
+          profileData.username,
         accessToken,
         connectedAt: new Date(),
       },
@@ -181,7 +176,10 @@ export async function GET(request: NextRequest) {
       )
     );
   } catch (error) {
-    console.error("Instagram callback error:", error);
+    console.error(
+      "Instagram callback error:",
+      error
+    );
 
     return NextResponse.json(
       {
