@@ -108,43 +108,42 @@ export async function GET(request: NextRequest) {
      * Business Login gives us the Instagram user ID.
      */
 
-    const instagramUserId = String(
-      tokenData.user_id
-    );
+   
 
     /*
      * Get Instagram profile
      */
 
-    const profileResponse = await fetch(
-      `https://graph.instagram.com/v23.0/${instagramUserId}` +
-        `?fields=id,username` +
-        `&access_token=${encodeURIComponent(
-          accessToken
-        )}`
-    );
 
-    const profileData =
-      await profileResponse.json();
+const profileResponse = await fetch(
+  `https://graph.instagram.com/v23.0/me` +
+    `?fields=id,username` +
+    `&access_token=${encodeURIComponent(accessToken)}`
+);
 
-    if (
-      !profileResponse.ok ||
-      !profileData.username
-    ) {
-      console.error(
-        "Instagram profile error:",
-        profileData
-      );
+const profileData = await profileResponse.json();
 
-      return NextResponse.json(
-        {
-          error: "Could not get Instagram profile",
-          details: profileData,
-        },
-        { status: 400 }
-      );
-    }
+if (
+  !profileResponse.ok ||
+  !profileData.id ||
+  !profileData.username
+) {
+  console.error(
+    "Instagram profile error:",
+    profileData
+  );
 
+  return NextResponse.json(
+    {
+      error: "Could not get Instagram profile",
+      details: profileData,
+    },
+    { status: 400 }
+  );
+}
+
+const instagramUserId = String(profileData.id);
+const instagramUsername = profileData.username;
     /*
      * Save connection
      */
@@ -159,7 +158,6 @@ export async function GET(request: NextRequest) {
         userId: payload.username,
         instagramUserId,
         instagramUsername:
-          profileData.username,
         accessToken,
         connectedAt: new Date(),
       },
