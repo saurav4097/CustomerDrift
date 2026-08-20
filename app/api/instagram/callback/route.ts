@@ -157,7 +157,7 @@ const instagramUsername = profileData.username;
       {
         userId: payload.username,
         instagramUserId,
-        instagramUsername:
+        instagramUsername,
         accessToken,
         connectedAt: new Date(),
       },
