@@ -45,23 +45,27 @@ export async function POST(request: NextRequest) {
     }
 
     const accessToken = instagramSetup.accessToken;
-    const instagramUserId = instagramSetup.instagramUserId;
+    const instagramUserId =
+      instagramSetup.instagramUserId;
 
     /*
-     * 1. Get Instagram media/posts
+     * Get Instagram posts
      */
-    const mediaUrl =
-      `https://graph.instagram.com/${instagramUserId}/media` +
-      `?fields=id,caption,media_type,media_url,permalink,timestamp` +
-      `&limit=100` +
-      `&access_token=${encodeURIComponent(accessToken)}`;
 
-    const mediaResponse = await fetch(mediaUrl);
+    const mediaResponse = await fetch(
+      `https://graph.instagram.com/v23.0/${instagramUserId}/media` +
+        `?fields=id,caption,media_type,media_url,permalink,timestamp` +
+        `&limit=100` +
+        `&access_token=${encodeURIComponent(accessToken)}`
+    );
 
     const mediaData = await mediaResponse.json();
 
     if (!mediaResponse.ok) {
-      console.error("Instagram media error:", mediaData);
+      console.error(
+        "Instagram media error:",
+        mediaData
+      );
 
       return NextResponse.json(
         {
@@ -77,18 +81,21 @@ export async function POST(request: NextRequest) {
     let totalComments = 0;
 
     /*
-     * 2. Get comments for every post
+     * Get comments for every post
      */
+
     for (const post of posts) {
-      const commentsUrl =
-        `https://graph.instagram.com/${post.id}/comments` +
-        `?fields=id,text,username,timestamp` +
-        `&limit=100` +
-        `&access_token=${encodeURIComponent(accessToken)}`;
+      const commentsResponse = await fetch(
+        `https://graph.instagram.com/v23.0/${post.id}/comments` +
+          `?fields=id,text,username,timestamp` +
+          `&limit=100` +
+          `&access_token=${encodeURIComponent(
+            accessToken
+          )}`
+      );
 
-      const commentsResponse = await fetch(commentsUrl);
-
-      const commentsData = await commentsResponse.json();
+      const commentsData =
+        await commentsResponse.json();
 
       if (!commentsResponse.ok) {
         console.error(
@@ -99,11 +106,13 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const comments = commentsData.data || [];
+      const comments =
+        commentsData.data || [];
 
       /*
-       * 3. Save comments
+       * Save comments
        */
+
       for (const comment of comments) {
         await InstagramComment.findOneAndUpdate(
           {
@@ -113,12 +122,20 @@ export async function POST(request: NextRequest) {
             userId: payload.username,
             instagramUserId,
             postId: String(post.id),
+
             commentId: String(comment.id),
-            username: comment.username || "",
-            comment: comment.text || "",
-            commentCreatedAt: comment.timestamp
-              ? new Date(comment.timestamp)
-              : undefined,
+
+            username:
+              comment.username || "",
+
+            comment:
+              comment.text || "",
+
+            commentCreatedAt:
+              comment.timestamp
+                ? new Date(comment.timestamp)
+                : undefined,
+
             syncedAt: new Date(),
           },
           {
@@ -137,7 +154,10 @@ export async function POST(request: NextRequest) {
       commentsFetched: totalComments,
     });
   } catch (error) {
-    console.error("Instagram sync error:", error);
+    console.error(
+      "Instagram sync error:",
+      error
+    );
 
     return NextResponse.json(
       {
