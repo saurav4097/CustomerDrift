@@ -9,7 +9,18 @@ import InstagramComment from "@/models/InstagramComment";
 
 import { verifyToken } from "@/lib/auth";
 
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    instagram_synced?: string;
+    posts?: string;
+    comments?: string;
+    instagram_error?: string;
+  }>;
+}) {
+  const params = await searchParams;
+
   const cookieStore = await cookies();
 
   const token = cookieStore.get("token")?.value;
@@ -28,21 +39,18 @@ export default async function Dashboard() {
 
   const competitors = await Competitor.find({
     username: payload.username,
+  }).lean();
+
+  const instagram = await InstagramSetup.findOne({
+    userId: payload.username,
+  }).lean();
+
+  const comments = await InstagramComment.find({
+    userId: payload.username,
   })
+    .sort({ commentCreatedAt: -1 })
+    .limit(20)
     .lean();
-
-  const instagram =
-    await InstagramSetup.findOne({
-      userId: payload.username,
-    }).lean();
-
-  const comments =
-    await InstagramComment.find({
-      userId: payload.username,
-    })
-      .sort({ commentCreatedAt: -1 })
-      .limit(20)
-      .lean();
 
   const commentCount =
     await InstagramComment.countDocuments({
@@ -101,6 +109,7 @@ export default async function Dashboard() {
               method="POST"
             >
               <button
+                type="submit"
                 className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-300 hover:border-gray-600"
               >
                 Logout
@@ -108,8 +117,42 @@ export default async function Dashboard() {
             </form>
 
           </div>
-
         </div>
+
+
+        {/* SYNC SUCCESS MESSAGE */}
+
+        {params.instagram_synced === "true" && (
+          <div className="mb-6 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
+
+            <p className="text-green-400 font-medium">
+              Instagram synced successfully
+            </p>
+
+            <p className="text-sm text-gray-400 mt-1">
+              {params.posts || 0} posts checked ·{" "}
+              {params.comments || 0} comments found
+            </p>
+
+          </div>
+        )}
+
+
+        {/* SYNC ERROR MESSAGE */}
+
+        {params.instagram_error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+
+            <p className="text-red-400 font-medium">
+              Instagram sync failed
+            </p>
+
+            <p className="text-sm text-gray-400 mt-1">
+              {params.instagram_error}
+            </p>
+
+          </div>
+        )}
 
 
         {/* SMALL SUMMARY */}
@@ -128,7 +171,11 @@ export default async function Dashboard() {
 
           <SummaryCard
             title="Instagram"
-            value={instagram ? "Connected" : "Not connected"}
+            value={
+              instagram
+                ? "Connected"
+                : "Not connected"
+            }
           />
 
         </div>
@@ -253,9 +300,7 @@ export default async function Dashboard() {
           </div>
 
         </section>
-
-
-        {/* WHAT CUSTOMERS WANT */}
+                {/* WHAT CUSTOMERS WANT */}
 
         <section className="rounded-3xl border border-gray-800 bg-gray-950 p-6 mb-6">
 
@@ -274,13 +319,21 @@ export default async function Dashboard() {
 
           <div className="grid md:grid-cols-2 gap-4 mt-6">
 
-            <NeedCard text="Common product requests" />
+            <NeedCard
+              text="Common product requests"
+            />
 
-            <NeedCard text="Pricing requests" />
+            <NeedCard
+              text="Pricing requests"
+            />
 
-            <NeedCard text="Support problems" />
+            <NeedCard
+              text="Support problems"
+            />
 
-            <NeedCard text="Feature requests" />
+            <NeedCard
+              text="Feature requests"
+            />
 
           </div>
 
@@ -303,7 +356,6 @@ export default async function Dashboard() {
             CustomerDrift will turn customer
             conversations into practical actions.
           </p>
-
 
           <div className="space-y-3 mt-6">
 
@@ -334,9 +386,11 @@ export default async function Dashboard() {
 
         {instagram && (
           <div className="text-center text-sm text-gray-600">
-            Connected to Instagram as
-            {" "}
+
+            Connected to Instagram as{" "}
+
             @{instagram.instagramUsername}
+
           </div>
         )}
 
@@ -346,8 +400,9 @@ export default async function Dashboard() {
 }
 
 
-/* COMPONENTS */
-
+/* ============================= */
+/* SUMMARY CARD */
+/* ============================= */
 
 function SummaryCard({
   title,
@@ -371,6 +426,10 @@ function SummaryCard({
   );
 }
 
+
+/* ============================= */
+/* PATTERN CARD */
+/* ============================= */
 
 function PatternCard({
   icon,
@@ -401,6 +460,10 @@ function PatternCard({
 }
 
 
+/* ============================= */
+/* NEED CARD */
+/* ============================= */
+
 function NeedCard({
   text,
 }: {
@@ -421,6 +484,10 @@ function NeedCard({
   );
 }
 
+
+/* ============================= */
+/* GUIDE ITEM */
+/* ============================= */
 
 function GuideItem({
   number,
@@ -454,6 +521,10 @@ function GuideItem({
   );
 }
 
+
+/* ============================= */
+/* EMPTY STATE */
+/* ============================= */
 
 function EmptyState({
   text,

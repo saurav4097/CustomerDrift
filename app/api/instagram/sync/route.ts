@@ -14,37 +14,38 @@ export async function POST(request: NextRequest) {
     const token = cookieStore.get("token")?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
+      return NextResponse.redirect(
+        new URL("/login", request.url)
       );
     }
 
     const payload = verifyToken(token);
 
     if (!payload) {
-      return NextResponse.json(
-        { error: "Invalid session" },
-        { status: 401 }
+      return NextResponse.redirect(
+        new URL("/login", request.url)
       );
     }
 
     await connectDB();
 
-    const instagramSetup = await InstagramSetup.findOne({
-      userId: payload.username,
-    }).lean();
+    const instagramSetup =
+      await InstagramSetup.findOne({
+        userId: payload.username,
+      }).lean();
 
     if (!instagramSetup) {
-      return NextResponse.json(
-        {
-          error: "Instagram account not connected",
-        },
-        { status: 400 }
+      return NextResponse.redirect(
+        new URL(
+          "/dashboard?instagram_error=not_connected",
+          request.url
+        )
       );
     }
 
-    const accessToken = instagramSetup.accessToken;
+    const accessToken =
+      instagramSetup.accessToken;
+
     const instagramUserId =
       instagramSetup.instagramUserId;
 
@@ -56,10 +57,13 @@ export async function POST(request: NextRequest) {
       `https://graph.instagram.com/v23.0/${instagramUserId}/media` +
         `?fields=id,caption,media_type,media_url,permalink,timestamp` +
         `&limit=100` +
-        `&access_token=${encodeURIComponent(accessToken)}`
+        `&access_token=${encodeURIComponent(
+          accessToken
+        )}`
     );
 
-    const mediaData = await mediaResponse.json();
+    const mediaData =
+      await mediaResponse.json();
 
     if (!mediaResponse.ok) {
       console.error(
@@ -67,12 +71,13 @@ export async function POST(request: NextRequest) {
         mediaData
       );
 
-      return NextResponse.json(
-        {
-          error: "Could not fetch Instagram posts",
-          details: mediaData,
-        },
-        { status: 400 }
+      return NextResponse.redirect(
+        new URL(
+          `/dashboard?instagram_error=${encodeURIComponent(
+            "Could not fetch Instagram posts"
+          )}`,
+          request.url
+        )
       );
     }
 
@@ -81,18 +86,19 @@ export async function POST(request: NextRequest) {
     let totalComments = 0;
 
     /*
-     * Get comments for every post
+     * Get comments
      */
 
     for (const post of posts) {
-      const commentsResponse = await fetch(
-        `https://graph.instagram.com/v23.0/${post.id}/comments` +
-          `?fields=id,text,username,timestamp` +
-          `&limit=100` +
-          `&access_token=${encodeURIComponent(
-            accessToken
-          )}`
-      );
+      const commentsResponse =
+        await fetch(
+          `https://graph.instagram.com/v23.0/${post.id}/comments` +
+            `?fields=id,text,username,timestamp` +
+            `&limit=100` +
+            `&access_token=${encodeURIComponent(
+              accessToken
+            )}`
+        );
 
       const commentsData =
         await commentsResponse.json();
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
         commentsData.data || [];
 
       /*
-       * Save comments
+       * Save comments in MongoDB
        */
 
       for (const comment of comments) {
@@ -120,7 +126,9 @@ export async function POST(request: NextRequest) {
           },
           {
             userId: payload.username,
+
             instagramUserId,
+
             postId: String(post.id),
 
             commentId: String(comment.id),
@@ -148,22 +156,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      postsFetched: posts.length,
-      commentsFetched: totalComments,
-    });
+    /*
+     * Redirect back to dashboard
+     */
+
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard?instagram_synced=true&posts=${posts.length}&comments=${totalComments}`,
+        request.url
+      )
+    );
+
   } catch (error) {
     console.error(
       "Instagram sync error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        error: "Instagram sync failed",
-      },
-      { status: 500 }
+    return NextResponse.redirect(
+      new URL(
+        "/dashboard?instagram_error=sync_failed",
+        request.url
+      )
     );
   }
 }
