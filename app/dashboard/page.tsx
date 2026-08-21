@@ -37,6 +37,10 @@ export default async function Dashboard({
 
   await connectDB();
 
+  /* ============================= */
+  /* GET USER DATA */
+  /* ============================= */
+
   const competitors = await Competitor.find({
     username: payload.username,
   }).lean();
@@ -57,107 +61,375 @@ export default async function Dashboard({
       userId: payload.username,
     });
 
+  /* ============================= */
+  /* INSTAGRAM ERROR */
+  /* ============================= */
+
+  let instagramErrorMessage = "";
+
+  if (params.instagram_error) {
+    switch (params.instagram_error) {
+      case "expired":
+        instagramErrorMessage =
+          "Your Instagram connection has expired. Please reconnect your Instagram account to continue collecting data.";
+        break;
+
+      case "invalid_token":
+        instagramErrorMessage =
+          "Your Instagram connection is no longer valid. Please reconnect your Instagram account.";
+        break;
+
+      case "no_code":
+        instagramErrorMessage =
+          "Instagram authorization was not completed. Please try connecting again.";
+        break;
+
+      case "access_denied":
+        instagramErrorMessage =
+          "Instagram access was denied. Please reconnect and allow the required permissions.";
+        break;
+
+      default:
+        instagramErrorMessage =
+          "Something went wrong with your Instagram connection. Please try reconnecting your account.";
+        break;
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-white p-6 md:p-8">
+
       <div className="max-w-7xl mx-auto">
 
+        {/* ================================= */}
         {/* HEADER */}
+        {/* ================================= */}
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 mb-8">
 
           <div>
+
             <p className="text-sm text-gray-500">
               CustomerDrift
             </p>
 
-            <h1 className="text-3xl font-bold mt-1">
+            <h1 className="text-3xl md:text-4xl font-bold mt-1">
               Customer Intelligence
             </h1>
 
-            <p className="text-gray-400 mt-2">
-              See what your customers are saying,
-              what patterns are appearing and what
-              you should do next.
+            <p className="text-gray-400 mt-2 max-w-2xl">
+              Connect your customer channels, collect
+              conversations and understand what your
+              customers are really saying.
             </p>
+
           </div>
 
-          <div className="flex gap-3">
 
-            {instagram ? (
-              <form
-                action="/api/instagram/sync"
-                method="POST"
-              >
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-gray-200 transition"
-                >
-                  Sync Instagram
-                </button>
-              </form>
-            ) : (
-              <a
-                href="/api/instagram/connect"
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 font-medium"
-              >
-                Connect Instagram
-              </a>
-            )}
+          {/* LOGOUT */}
 
-            <form
-              action="/api/logout"
-              method="POST"
+          <form
+            action="/api/logout"
+            method="POST"
+          >
+
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-300 hover:border-gray-600 hover:text-white transition"
             >
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-300 hover:border-gray-600"
-              >
-                Logout
-              </button>
-            </form>
+              Logout
+            </button>
 
-          </div>
+          </form>
+
         </div>
 
 
-        {/* SYNC SUCCESS MESSAGE */}
+        {/* ================================= */}
+        {/* INSTAGRAM ERROR */}
+        {/* ================================= */}
+
+        {instagramErrorMessage && (
+          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+
+            <div className="flex gap-3">
+
+              <div className="text-red-400 text-lg">
+                ⚠
+              </div>
+
+              <div>
+
+                <p className="text-red-400 font-semibold">
+                  Instagram connection problem
+                </p>
+
+                <p className="text-sm text-gray-400 mt-1 leading-6">
+                  {instagramErrorMessage}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+
+        {/* ================================= */}
+        {/* INSTAGRAM SYNC SUCCESS */}
+        {/* ================================= */}
 
         {params.instagram_synced === "true" && (
-          <div className="mb-6 rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
+          <div className="mb-6 rounded-2xl border border-green-500/30 bg-green-500/10 p-5">
 
-            <p className="text-green-400 font-medium">
-              Instagram synced successfully
-            </p>
+            <div className="flex gap-3">
 
-            <p className="text-sm text-gray-400 mt-1">
-              {params.posts || 0} posts checked ·{" "}
-              {params.comments || 0} comments found
-            </p>
+              <div className="text-green-400 text-lg">
+                ✓
+              </div>
 
-          </div>
-        )}
+              <div>
 
+                <p className="text-green-400 font-semibold">
+                  Instagram data collected successfully
+                </p>
 
-        {/* SYNC ERROR MESSAGE */}
+                <p className="text-sm text-gray-400 mt-1">
+                  {params.posts || 0} posts checked ·{" "}
+                  {params.comments || 0} comments found
+                </p>
 
-        {params.instagram_error && (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+              </div>
 
-            <p className="text-red-400 font-medium">
-              Instagram sync failed
-            </p>
-
-            <p className="text-sm text-gray-400 mt-1">
-              {params.instagram_error}
-            </p>
+            </div>
 
           </div>
         )}
 
 
+        {/* ================================= */}
+        {/* CONNECTIONS */}
+        {/* ================================= */}
+
+        <section className="mb-8">
+
+          <div className="mb-5">
+
+            <p className="text-sm text-purple-400 font-medium">
+              DATA SOURCES
+            </p>
+
+            <h2 className="text-2xl font-semibold mt-1">
+              Connect your customer channels
+            </h2>
+
+            <p className="text-sm text-gray-500 mt-1">
+              CustomerDrift collects customer conversations
+              from the platforms you connect.
+            </p>
+
+          </div>
+
+
+          <div className="grid md:grid-cols-3 gap-4">
+
+
+            {/* ============================= */}
+            {/* INSTAGRAM */}
+            {/* ============================= */}
+
+            <div className="rounded-3xl border border-gray-800 bg-gray-950 p-6">
+
+              <div className="flex items-start justify-between">
+
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-purple-500 to-orange-400 flex items-center justify-center text-xl">
+                  ◎
+                </div>
+
+                {instagram ? (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                    Connected
+                  </span>
+                ) : (
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-400">
+                    Not connected
+                  </span>
+                )}
+
+              </div>
+
+
+              <h3 className="text-lg font-semibold mt-5">
+                Instagram
+              </h3>
+
+              <p className="text-sm text-gray-500 mt-2 min-h-[48px]">
+                Collect posts and customer comments
+                from your Instagram account.
+              </p>
+
+
+              {/* INSTAGRAM CONNECTION BUTTON */}
+
+              <div className="mt-5">
+
+                {instagram ? (
+
+                  <div className="space-y-2">
+
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full px-4 py-2.5 rounded-xl bg-green-500/10 text-green-400 border border-green-500/20 cursor-not-allowed"
+                    >
+                      ✓ Instagram Connected
+                    </button>
+
+
+                    <a
+                      href="/api/instagram/connect"
+                      className="block w-full text-center px-4 py-2.5 rounded-xl border border-gray-700 text-gray-300 hover:border-purple-500 hover:text-white transition"
+                    >
+                      Reconnect Instagram
+                    </a>
+
+                  </div>
+
+                ) : (
+
+                  <a
+                    href="/api/instagram/connect"
+                    className="block w-full text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium hover:opacity-90 transition"
+                  >
+                    Connect Instagram
+                  </a>
+
+                )}
+
+              </div>
+
+
+              {/* COLLECT DATA */}
+
+              {instagram && (
+                <form
+                  action="/api/instagram/sync"
+                  method="POST"
+                  className="mt-3"
+                >
+
+                  <button
+                    type="submit"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white text-black font-medium hover:bg-gray-200 transition"
+                  >
+                    Collect Instagram Data
+                  </button>
+
+                </form>
+              )}
+
+
+              {/* ACCOUNT */}
+
+              {instagram && (
+                <p className="text-xs text-gray-600 mt-4">
+                  Connected as @{instagram.instagramUsername}
+                </p>
+              )}
+
+            </div>
+
+
+            {/* ============================= */}
+            {/* LINKEDIN */}
+            {/* ============================= */}
+
+            <div className="rounded-3xl border border-gray-800 bg-gray-950 p-6 opacity-80">
+
+              <div className="flex items-start justify-between">
+
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-xl">
+                  in
+                </div>
+
+                <span className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-500">
+                  Coming soon
+                </span>
+
+              </div>
+
+
+              <h3 className="text-lg font-semibold mt-5">
+                LinkedIn
+              </h3>
+
+              <p className="text-sm text-gray-500 mt-2 min-h-[48px]">
+                Collect posts, comments and customer
+                conversations from LinkedIn.
+              </p>
+
+
+              <button
+                type="button"
+                disabled
+                className="w-full mt-5 px-4 py-2.5 rounded-xl border border-gray-800 text-gray-600 cursor-not-allowed"
+              >
+                LinkedIn Connection Coming Soon
+              </button>
+
+            </div>
+
+
+            {/* ============================= */}
+            {/* YOUTUBE */}
+            {/* ============================= */}
+
+            <div className="rounded-3xl border border-gray-800 bg-gray-950 p-6 opacity-80">
+
+              <div className="flex items-start justify-between">
+
+                <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center font-bold text-lg">
+                  ▶
+                </div>
+
+                <span className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-500">
+                  Coming soon
+                </span>
+
+              </div>
+
+
+              <h3 className="text-lg font-semibold mt-5">
+                YouTube
+              </h3>
+
+              <p className="text-sm text-gray-500 mt-2 min-h-[48px]">
+                Collect video comments and understand
+                what your audience is saying.
+              </p>
+
+
+              <button
+                type="button"
+                disabled
+                className="w-full mt-5 px-4 py-2.5 rounded-xl border border-gray-800 text-gray-600 cursor-not-allowed"
+              >
+                YouTube Connection Coming Soon
+              </button>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* ================================= */}
         {/* SMALL SUMMARY */}
+        {/* ================================= */}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
           <SummaryCard
             title="Competitors"
@@ -165,23 +437,95 @@ export default async function Dashboard({
           />
 
           <SummaryCard
-            title="Comments analyzed"
+            title="Comments"
             value={commentCount}
           />
 
           <SummaryCard
-            title="Instagram"
-            value={
-              instagram
-                ? "Connected"
-                : "Not connected"
-            }
+            title="Instagram Posts"
+            value={params.posts || "—"}
+          />
+
+          <SummaryCard
+            title="Data Source"
+            value={instagram ? "Instagram" : "None"}
           />
 
         </div>
 
 
+        {/* ================================= */}
+        {/* INSTAGRAM DETAILS */}
+        {/* ================================= */}
+
+        {instagram && (
+          <section className="rounded-3xl border border-gray-800 bg-gray-950 p-6 mb-6">
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+              <div>
+
+                <p className="text-sm text-purple-400">
+                  INSTAGRAM DATA
+                </p>
+
+                <h2 className="text-2xl font-semibold mt-1">
+                  Your Instagram connection
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  CustomerDrift is connected to your
+                  Instagram account.
+                </p>
+
+              </div>
+
+
+              <div className="text-left md:text-right">
+
+                <p className="text-2xl font-bold">
+                  {commentCount}
+                </p>
+
+                <p className="text-sm text-gray-500">
+                  comments collected
+                </p>
+
+              </div>
+
+            </div>
+
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+
+              <DetailCard
+                title="Account"
+                value={`@${instagram.instagramUsername}`}
+              />
+
+              <DetailCard
+                title="Comments"
+                value={commentCount}
+              />
+
+              <DetailCard
+                title="Posts checked"
+                value={params.posts || "—"}
+              />
+
+              <DetailCard
+                title="Status"
+                value="Connected"
+              />
+
+            </div>
+
+          </section>
+        )}
+
+                {/* ================================= */}
         {/* CUSTOMER VOICE */}
+        {/* ================================= */}
 
         <section className="rounded-3xl border border-gray-800 bg-gray-950 p-6 mb-6">
 
@@ -196,8 +540,8 @@ export default async function Dashboard({
             </h2>
 
             <p className="text-gray-500 text-sm mt-1">
-              Recent conversations collected from
-              Instagram.
+              Recent customer conversations collected
+              from your connected channels.
             </p>
 
           </div>
@@ -207,7 +551,11 @@ export default async function Dashboard({
 
             <EmptyState
               text="No customer comments collected yet."
-              subtext="Connect Instagram and sync your account to start collecting customer conversations."
+              subtext={
+                instagram
+                  ? "Click 'Collect Instagram Data' to check your Instagram account."
+                  : "Connect Instagram to start collecting customer conversations."
+              }
             />
 
           ) : (
@@ -238,7 +586,7 @@ export default async function Dashboard({
 
                     </div>
 
-                    <p className="text-gray-300 mt-2">
+                    <p className="text-gray-300 mt-2 leading-6">
                       {comment.comment}
                     </p>
 
@@ -254,7 +602,9 @@ export default async function Dashboard({
         </section>
 
 
+        {/* ================================= */}
         {/* PATTERNS */}
+        {/* ================================= */}
 
         <section className="rounded-3xl border border-gray-800 bg-gray-950 p-6 mb-6">
 
@@ -268,6 +618,11 @@ export default async function Dashboard({
               What CustomerDrift is seeing
             </h2>
 
+            <p className="text-sm text-gray-500 mt-1">
+              Repeated signals from customer conversations
+              will appear here.
+            </p>
+
           </div>
 
 
@@ -276,13 +631,13 @@ export default async function Dashboard({
             <PatternCard
               icon="🔴"
               title="Customer complaints"
-              text="Once comment analysis is enabled, repeated complaints will appear here."
+              text="Repeated complaints will be identified from customer conversations."
             />
 
             <PatternCard
               icon="🟠"
               title="Repeated questions"
-              text="Questions customers keep asking will be grouped into patterns."
+              text="Questions customers repeatedly ask will be grouped together."
             />
 
             <PatternCard
@@ -300,7 +655,11 @@ export default async function Dashboard({
           </div>
 
         </section>
-                {/* WHAT CUSTOMERS WANT */}
+
+
+        {/* ================================= */}
+        {/* CUSTOMER NEEDS */}
+        {/* ================================= */}
 
         <section className="rounded-3xl border border-gray-800 bg-gray-950 p-6 mb-6">
 
@@ -314,8 +673,9 @@ export default async function Dashboard({
 
           <p className="text-gray-500 mt-2">
             Customer requests will be automatically
-            grouped here.
+            grouped here once enough data is available.
           </p>
+
 
           <div className="grid md:grid-cols-2 gap-4 mt-6">
 
@@ -340,7 +700,9 @@ export default async function Dashboard({
         </section>
 
 
+        {/* ================================= */}
         {/* GUIDE */}
+        {/* ================================= */}
 
         <section className="rounded-3xl border border-purple-500/20 bg-purple-950/10 p-6 mb-8">
 
@@ -356,6 +718,7 @@ export default async function Dashboard({
             CustomerDrift will turn customer
             conversations into practical actions.
           </p>
+
 
           <div className="space-y-3 mt-6">
 
@@ -382,14 +745,18 @@ export default async function Dashboard({
         </section>
 
 
-        {/* INSTAGRAM STATUS */}
+        {/* ================================= */}
+        {/* FOOTER INSTAGRAM STATUS */}
+        {/* ================================= */}
 
         {instagram && (
-          <div className="text-center text-sm text-gray-600">
+          <div className="text-center text-sm text-gray-600 pb-4">
 
-            Connected to Instagram as{" "}
+            Instagram connected as{" "}
 
-            @{instagram.instagramUsername}
+            <span className="text-gray-400">
+              @{instagram.instagramUsername}
+            </span>
 
           </div>
         )}
@@ -400,9 +767,9 @@ export default async function Dashboard({
 }
 
 
-/* ============================= */
+/* ================================= */
 /* SUMMARY CARD */
-/* ============================= */
+/* ================================= */
 
 function SummaryCard({
   title,
@@ -427,9 +794,36 @@ function SummaryCard({
 }
 
 
-/* ============================= */
+/* ================================= */
+/* DETAIL CARD */
+/* ================================= */
+
+function DetailCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-800 bg-black p-4">
+
+      <p className="text-xs text-gray-600">
+        {title}
+      </p>
+
+      <p className="text-sm text-gray-300 mt-1 truncate">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+/* ================================= */
 /* PATTERN CARD */
-/* ============================= */
+/* ================================= */
 
 function PatternCard({
   icon,
@@ -460,9 +854,9 @@ function PatternCard({
 }
 
 
-/* ============================= */
+/* ================================= */
 /* NEED CARD */
-/* ============================= */
+/* ================================= */
 
 function NeedCard({
   text,
@@ -485,9 +879,9 @@ function NeedCard({
 }
 
 
-/* ============================= */
+/* ================================= */
 /* GUIDE ITEM */
-/* ============================= */
+/* ================================= */
 
 function GuideItem({
   number,
@@ -511,7 +905,7 @@ function GuideItem({
           {title}
         </h3>
 
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 mt-1 leading-6">
           {text}
         </p>
 
@@ -522,9 +916,9 @@ function GuideItem({
 }
 
 
-/* ============================= */
+/* ================================= */
 /* EMPTY STATE */
-/* ============================= */
+/* ================================= */
 
 function EmptyState({
   text,

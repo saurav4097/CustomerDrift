@@ -9,6 +9,10 @@ import InstagramComment from "@/models/InstagramComment";
 
 export async function POST(request: NextRequest) {
   try {
+    // =========================
+    // 1. CHECK LOGIN
+    // =========================
+
     const cookieStore = await cookies();
 
     const token = cookieStore.get("token")?.value;
@@ -27,7 +31,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // =========================
+    // 2. CONNECT DATABASE
+    // =========================
+
     await connectDB();
+
+    // =========================
+    // 3. GET INSTAGRAM CONNECTION
+    // =========================
 
     const instagramSetup =
       await InstagramSetup.findOne({
@@ -49,9 +61,18 @@ export async function POST(request: NextRequest) {
     const instagramUserId =
       instagramSetup.instagramUserId;
 
-    /*
-     * Get Instagram posts
-     */
+    if (!accessToken || !instagramUserId) {
+      return NextResponse.redirect(
+        new URL(
+          "/dashboard?instagram_error=invalid_connection",
+          request.url
+        )
+      );
+    }
+
+    // =========================
+    // 4. GET INSTAGRAM POSTS
+    // =========================
 
     const mediaResponse = await fetch(
       `https://graph.instagram.com/v23.0/${instagramUserId}/media` +
@@ -65,100 +86,176 @@ export async function POST(request: NextRequest) {
     const mediaData =
       await mediaResponse.json();
 
+    // =========================
+    // 5. CHECK INSTAGRAM TOKEN
+    // =========================
+
     if (!mediaResponse.ok) {
       console.error(
         "Instagram media error:",
         mediaData
       );
 
+      const errorCode =
+        mediaData?.error?.code;
+
+      const errorMessage =
+        mediaData?.error?.message || "";
+
+      /*
+       * Instagram access token expired
+       * or is invalid.
+       */
+
+      if (
+        errorCode === 190 ||
+        errorMessage
+          .toLowerCase()
+          .includes("access token") ||
+        errorMessage
+          .toLowerCase()
+          .includes("session has expired")
+      ) {
+        return NextResponse.redirect(
+          new URL(
+            "/dashboard?instagram_error=token_expired",
+            request.url
+          )
+        );
+      }
+
+      // Other Instagram API error
+
       return NextResponse.redirect(
         new URL(
           `/dashboard?instagram_error=${encodeURIComponent(
-            "Could not fetch Instagram posts"
+            "Instagram could not fetch your posts. Please try again."
           )}`,
           request.url
         )
       );
     }
 
-    const posts = mediaData.data || [];
+    // =========================
+    // 6. POSTS
+    // =========================
+
+    const posts =
+      Array.isArray(mediaData.data)
+        ? mediaData.data
+        : [];
 
     let totalComments = 0;
 
-    /*
-     * Get comments
-     */
+    // =========================
+    // 7. GET COMMENTS
+    // =========================
 
     for (const post of posts) {
-      const commentsResponse =
-        await fetch(
-          `https://graph.instagram.com/v23.0/${post.id}/comments` +
-            `?fields=id,text,username,timestamp` +
-            `&limit=100` +
-            `&access_token=${encodeURIComponent(
-              accessToken
-            )}`
-        );
+      try {
+        const commentsResponse =
+          await fetch(
+            `https://graph.instagram.com/v23.0/${post.id}/comments` +
+              `?fields=id,text,username,timestamp` +
+              `&limit=100` +
+              `&access_token=${encodeURIComponent(
+                accessToken
+              )}`
+          );
 
-      const commentsData =
-        await commentsResponse.json();
+        const commentsData =
+          await commentsResponse.json();
 
-      if (!commentsResponse.ok) {
-        console.error(
-          `Comments error for post ${post.id}:`,
-          commentsData
-        );
+        // If comments fail for one post,
+        // continue with the other posts.
 
-        continue;
-      }
+        if (!commentsResponse.ok) {
+          console.error(
+            `Comments error for post ${post.id}:`,
+            commentsData
+          );
 
-      const comments =
-        commentsData.data || [];
-
-      /*
-       * Save comments in MongoDB
-       */
-
-      for (const comment of comments) {
-        await InstagramComment.findOneAndUpdate(
-          {
-            commentId: String(comment.id),
-          },
-          {
-            userId: payload.username,
-
-            instagramUserId,
-
-            postId: String(post.id),
-
-            commentId: String(comment.id),
-
-            username:
-              comment.username || "",
-
-            comment:
-              comment.text || "",
-
-            commentCreatedAt:
-              comment.timestamp
-                ? new Date(comment.timestamp)
-                : undefined,
-
-            syncedAt: new Date(),
-          },
-          {
-            upsert: true,
-            new: true,
+          // If token expired while fetching comments
+          if (
+            commentsData?.error?.code === 190
+          ) {
+            return NextResponse.redirect(
+              new URL(
+                "/dashboard?instagram_error=token_expired",
+                request.url
+              )
+            );
           }
+
+          continue;
+        }
+
+        const comments =
+          Array.isArray(
+            commentsData.data
+          )
+            ? commentsData.data
+            : [];
+
+        // =========================
+        // 8. SAVE COMMENTS
+        // =========================
+
+        for (const comment of comments) {
+          await InstagramComment.findOneAndUpdate(
+            {
+              commentId: String(
+                comment.id
+              ),
+            },
+            {
+              userId: payload.username,
+
+              instagramUserId,
+
+              postId: String(post.id),
+
+              commentId: String(
+                comment.id
+              ),
+
+              username:
+                comment.username || "",
+
+              comment:
+                comment.text || "",
+
+              commentCreatedAt:
+                comment.timestamp
+                  ? new Date(
+                      comment.timestamp
+                    )
+                  : undefined,
+
+              syncedAt: new Date(),
+            },
+            {
+              upsert: true,
+              new: true,
+            }
+          );
+
+          totalComments++;
+        }
+      } catch (postError) {
+        console.error(
+          `Error processing post ${post.id}:`,
+          postError
         );
 
-        totalComments++;
+        // Continue processing remaining posts
+        continue;
       }
     }
 
-    /*
-     * Redirect back to dashboard
-     */
+    // =========================
+    // 9. SUCCESS
+    // =========================
 
     return NextResponse.redirect(
       new URL(
@@ -166,8 +263,11 @@ export async function POST(request: NextRequest) {
         request.url
       )
     );
-
   } catch (error) {
+    // =========================
+    // 10. UNKNOWN ERROR
+    // =========================
+
     console.error(
       "Instagram sync error:",
       error
